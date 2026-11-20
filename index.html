@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Seyir · Yapay zekâ ne yapıyor, canlı izle</title>
+<meta name="description" content="Seyir: Rust ile yazılmış, Warp tarzı terminal (macOS ve Windows). Yapay zekâ kod ajanının her adımını canlı kutular hâlinde izle." />
+<meta property="og:title" content="Seyir · Yapay zekâ ne yapıyor, canlı izle" />
+<meta property="og:description" content="Warp tarzı terminal + yapay zekâ ajanının her adımı canlı akış olarak. 4 MB, Rust." />
+<link rel="icon" href="seyir.svg" />
+<style>
+  :root {
+    --bg: #09090b; --panel: #121216; --panel2: #18181d; --fg: #ececf1; --muted: #8e8e9a;
+    --line: rgba(255,255,255,.08); --sky: #38bdf8; --violet: #a78bfa; --ok: #4ade80; --err: #f87171;
+    --orange: #f5a35c; --claude: #e8956b;
+    --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+    --ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--ui); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+  /* Arka plan ışıkları */
+  .glow { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .glow i { position: absolute; border-radius: 50%; filter: blur(110px); opacity: .45; animation: kay 18s ease-in-out infinite alternate; }
+  .glow i:nth-child(1) { width: 620px; height: 620px; background: #1e6ff2; left: -160px; top: -220px; }
+  .glow i:nth-child(2) { width: 560px; height: 560px; background: #7c3aed; right: -180px; top: -120px; animation-delay: -6s; }
+  .glow i:nth-child(3) { width: 420px; height: 420px; background: #e8956b; left: 40%; top: 420px; opacity: .18; animation-delay: -12s; }
+  @keyframes kay { to { transform: translate(60px, 40px) scale(1.1); } }
+  .grid-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 56px 56px; mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 70%); opacity: .5; }
+
+  /* Üst çubuk */
+  nav { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); background: rgba(9,9,11,.6); border-bottom: 1px solid var(--line); }
+  nav .wrap { display: flex; align-items: center; gap: 22px; height: 60px; }
+  .marka { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: .2px; }
+  .marka img { width: 28px; height: 28px; }
+  nav .sag { margin-left: auto; display: flex; gap: 18px; align-items: center; font-size: 14px; color: var(--muted); }
+  nav .sag a:hover { color: var(--fg); }
+  .btn { display: inline-flex; align-items: center; gap: 10px; border-radius: 12px; font-weight: 600; transition: transform .15s, box-shadow .2s, background .2s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.sm { padding: 7px 14px; font-size: 14px; background: var(--fg); color: #000; }
+  .btn.ana { padding: 15px 26px; font-size: 17px; color: #05060a;
+    background: linear-gradient(135deg, #7dd3fc, #a78bfa); box-shadow: 0 10px 40px rgba(124,108,250,.35), inset 0 1px 0 rgba(255,255,255,.5); }
+  .btn.ana:hover { box-shadow: 0 16px 60px rgba(124,108,250,.5), inset 0 1px 0 rgba(255,255,255,.5); }
+  .btn.ikinci { padding: 15px 22px; font-size: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--fg); }
+  .btn.ikinci:hover { background: rgba(255,255,255,.07); }
+  .btn svg { width: 20px; height: 20px; }
+
+  /* Hero */
+  header.hero { position: relative; padding: 90px 0 40px; text-align: center; }
+  header.hero > .wrap { position: relative; z-index: 2; }
+  .rozet { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-size: 13px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); }
+  .rozet b { color: var(--fg); font-weight: 600; }
+  .rozet .nokta { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  h1 { font-size: clamp(40px, 7vw, 82px); line-height: 1.02; letter-spacing: -2.5px; margin: 26px 0 18px; font-weight: 800; }
+  h1 .renk { background: linear-gradient(120deg, #7dd3fc 10%, #a78bfa 50%, #f0abfc 90%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .alt { font-size: clamp(17px, 2.2vw, 21px); color: var(--muted); max-width: 720px; margin: 0 auto 34px; }
+  .alt b { color: var(--fg); font-weight: 600; }
+  .eylem { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .kucuk { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .kucuk code { font: 12px var(--mono); background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 5px; }
+
+  /* Uygulama vitrini */
+  .vitrin { position: relative; z-index: 2; margin: 56px auto 0; max-width: 1080px; perspective: 2000px; }
+  .pencere { border-radius: 16px; border: 1px solid rgba(255,255,255,.12); background: rgba(19,19,22,.92);
+    box-shadow: 0 50px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4), 0 0 120px rgba(124,108,250,.15);
+    overflow: hidden; transform: rotateX(8deg); transform-origin: top; transition: transform .8s cubic-bezier(.2,.8,.2,1); text-align: left; }
+  .vitrin.gor .pencere { transform: rotateX(0); }
+  .ust { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+  .ust .tl { width: 12px; height: 12px; border-radius: 50%; }
+  .ust .ad { margin-left: 14px; display: flex; gap: 7px; align-items: center; font-size: 13px; font-weight: 600; }
+  .ust .ad img { width: 16px; }
+  .ust .sek { margin-left: 10px; font-size: 12px; color: var(--muted); padding: 4px 12px; border-radius: 7px; background: var(--panel2); display: flex; gap: 7px; align-items: center; }
+  .ust .sek i { width: 6px; height: 6px; border-radius: 50%; background: var(--sky); animation: nabiz 1.2s infinite; }
+  @keyframes nabiz { 50% { opacity: .3; } }
+  .govde { display: grid; grid-template-columns: 1fr 1.1fr; height: 520px; }
+  .term { padding: 16px 18px; font: 13px/1.65 var(--mono); color: #d4d4d8; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  .term .blok { border-top: 1px solid var(--line); padding: 8px 0 10px; position: relative; }
+  .term .blok .sure { position: absolute; right: 0; top: 8px; font-size: 11px; color: var(--ok); background: rgba(74,222,128,.08); padding: 0 7px; border-radius: 5px; }
+  .term .k { color: var(--ok); }
+  .term .m { color: var(--muted); }
+  .term .d { color: var(--sky); }
+  .term .bos { flex: 1; }
+  .giris { border-top: 1px solid var(--line); margin: 0 -18px -16px; padding: 10px 18px 14px; background: var(--panel); }
+  .giris .meta { font-size: 12px; color: var(--sky); display: flex; gap: 10px; }
+  .giris .meta .g { color: var(--violet); }
+  .giris .satir { margin-top: 6px; color: #f2c6a8; }
+  .giris .satir .hash { color: var(--claude); }
+  .imlec { display: inline-block; width: 2px; height: 16px; background: var(--sky); vertical-align: -3px; animation: nabiz 1s steps(1) infinite; }
+
+  .defter { display: flex; flex-direction: column; min-width: 0; background: rgba(28,28,33,.6); }
+  .dbas { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 650; }
+  .dbas .yildiz { color: var(--claude); }
+  .dbas .dur { font: 11.5px var(--mono); color: var(--orange); font-weight: 400; }
+  .dbas .dur.bitti { color: var(--ok); }
+  .akis { flex: 1; overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; }
+  .kutu { border: 1px solid var(--line); border-radius: 10px; background: #131316; padding: 8px 11px; display: flex; gap: 8px; align-items: center;
+    opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s; min-width: 0; }
+  .kutu.var { opacity: 1; transform: none; }
+  .kutu .ic { width: 18px; text-align: center; }
+  .kutu .ad { font-weight: 600; white-space: nowrap; }
+  .kutu .ar { color: var(--muted); font: 11.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .kutu .sn { font: 11px var(--mono); color: var(--muted); }
+  .kutu.gorev { border-color: rgba(56,189,248,.45); background: rgba(56,189,248,.1); }
+  .kutu.gorev .ar { color: var(--fg); font: 600 12.5px var(--ui); white-space: normal; }
+  .kutu.calis { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245,163,92,.15); }
+  .kutu.calis .sn { color: var(--orange); }
+  .kutu.tamam { border-color: rgba(74,222,128,.45); }
+  .kutu.tamam .sn { color: var(--ok); }
+  .par { border: 1px dashed var(--line); border-radius: 12px; padding: 20px 8px 8px; position: relative; opacity: 0; transition: opacity .3s; }
+  .par.var { opacity: 1; }
+  .par .et { position: absolute; top: 4px; left: 12px; font-size: 10px; letter-spacing: .7px; text-transform: uppercase; color: var(--sky); }
+  .par .izgara { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
+  .par.iki .izgara { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .par .kutu { flex-wrap: wrap; row-gap: 1px; }
+  .par .kutu .ar { flex-basis: 100%; order: 5; }
+  .alt-ajan { border-color: rgba(167,139,250,.35); background: rgba(167,139,250,.06); flex-direction: column; align-items: stretch; }
+  .alt-ajan .ust2 { display: flex; gap: 8px; align-items: center; }
+  .alt-ajan .ic2 { margin-top: 6px; padding-left: 9px; border-left: 2px solid rgba(167,139,250,.35); font: 11px var(--mono); color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  .alt-ajan .ic2 span { opacity: 0; transition: opacity .3s; }
+  .alt-ajan .ic2 span.var { opacity: 1; }
+  .alt-ajan .ic2 .ek { color: var(--ok); }
+  .sonuc { border: 1.5px solid var(--ok); background: rgba(74,222,128,.06); border-radius: 10px; padding: 10px 12px; opacity: 0; transform: translateY(8px); transition: .4s; }
+  .sonuc.var { opacity: 1; transform: none; }
+  .sonuc b { color: var(--ok); }
+  .sonuc .st { margin-top: 6px; font: 11px var(--mono); color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+  .dusun { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+  .dusun .don { display: inline-block; color: var(--claude); animation: don 1.4s linear infinite; }
+  @keyframes don { to { transform: rotate(360deg); } }
+
+  /* Bölümler */
+  section { position: relative; z-index: 2; padding: 110px 0 0; }
+  .baslik { text-align: center; max-width: 720px; margin: 0 auto 50px; }
+  .baslik small { color: var(--sky); font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; font-size: 12.5px; }
+  .baslik h2 { font-size: clamp(30px, 4.5vw, 48px); letter-spacing: -1.4px; line-height: 1.1; margin: 10px 0 14px; }
+  .baslik p { color: var(--muted); font-size: 18px; margin: 0; }
+  .ozellik { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .kart { border: 1px solid var(--line); border-radius: 18px; padding: 26px; background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01));
+    transition: border-color .25s, transform .25s; position: relative; overflow: hidden; }
+  .kart:hover { border-color: rgba(167,139,250,.4); transform: translateY(-3px); }
+  .kart::after { content: ""; position: absolute; inset: -1px; border-radius: 18px; pointer-events: none;
+    background: radial-gradient(400px circle at var(--x, 50%) var(--y, 0%), rgba(124,108,250,.12), transparent 40%); opacity: 0; transition: opacity .3s; }
+  .kart:hover::after { opacity: 1; }
+  .kart .sim { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 21px; margin-bottom: 16px;
+    background: linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.18)); border: 1px solid var(--line); }
+  .kart h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -.3px; }
+  .kart p { margin: 0; color: var(--muted); font-size: 15px; }
+  .kart kbd { font: 12px var(--mono); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--fg); }
+  .kart.genis { grid-column: span 2; }
+  .kart.tam { grid-column: 1 / -1; }
+
+  .sayilar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 16px; }
+  .sayi { border: 1px solid var(--line); border-radius: 18px; padding: 24px; text-align: center; }
+  .sayi b { display: block; font-size: 38px; letter-spacing: -1px; background: linear-gradient(120deg, #7dd3fc, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sayi span { color: var(--muted); font-size: 14px; }
+
+  .nasil { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: a; }
+  .adim { border: 1px solid var(--line); border-radius: 18px; padding: 26px; position: relative; }
+  .adim::before { counter-increment: a; content: counter(a); position: absolute; top: 22px; right: 24px; font: 700 42px var(--ui); color: rgba(255,255,255,.06); }
+  .adim h3 { margin: 0 0 8px; }
+  .adim p { color: var(--muted); margin: 0 0 12px; font-size: 15px; }
+  .adim pre { margin: 0; font: 12.5px/1.6 var(--mono); background: #0f0f12; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: #d4d4d8; white-space: pre-wrap; }
+
+  .indir { margin-top: 110px; border-radius: 28px; padding: 64px 30px; text-align: center; position: relative; overflow: hidden;
+    border: 1px solid rgba(167,139,250,.3); background: radial-gradient(ellipse at top, rgba(124,108,250,.25), transparent 60%), #0e0e12; }
+  .indir img { width: 92px; filter: drop-shadow(0 20px 50px rgba(124,108,250,.6)); }
+  .indir h2 { font-size: clamp(30px, 4.5vw, 46px); letter-spacing: -1.2px; margin: 18px 0 10px; }
+  .indir p { color: var(--muted); margin: 0 0 28px; }
+  .cl-kutu { max-width: 760px; margin: 50px auto 0; text-align: left; }
+  .cl { border-left: 2px solid var(--line); padding: 2px 0 2px 18px; margin-bottom: 18px; }
+  .cl h4 { margin: 0 0 6px; font: 600 14px var(--mono); color: var(--sky); }
+  .cl ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+  footer { margin-top: 90px; padding: 34px 0 50px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  footer .sag { margin-left: auto; display: flex; gap: 18px; }
+  footer a:hover { color: var(--fg); }
+
+  .belir { opacity: 0; transform: translateY(24px); transition: opacity .7s, transform .7s cubic-bezier(.2,.8,.2,1); }
+  .belir.gor { opacity: 1; transform: none; }
+
+  @media (max-width: 900px) {
+    .govde { grid-template-columns: 1fr; height: auto; }
+    .term { display: none; }
+    .akis { height: 470px; }
+    .ozellik, .nasil { grid-template-columns: 1fr; }
+    .kart.genis { grid-column: auto; }
+    .sayilar { grid-template-columns: repeat(2, 1fr); }
+    nav .sag a.gizle { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } .belir, .kutu, .par, .sonuc { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="marka" href="#"><img src="seyir.svg" alt="" />Seyir</a>
+    <div class="sag">
+      <a class="gizle" href="#ozellikler">Özellikler</a>
+      <a class="gizle" href="#nasil">Nasıl çalışır</a>
+      <a class="gizle" href="#degisiklikler">Sürümler</a>
+      <a href="https://github.com/Clay-Tech/seyir">GitHub</a>
+      <a class="btn sm" id="nav-indir" href="https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir.dmg">İndir</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="glow"><i></i><i></i><i></i></div>
+  <div class="grid-bg"></div>
+  <div class="wrap">
+    <span class="rozet"><span class="nokta"></span><b>v<span class="surum">0.10.2</span></b> · macOS ve Windows için yeni terminal</span>
+    <h1>Yapay zekâ ne yapıyor,<br /><span class="renk">canlı izle.</span></h1>
+    <p class="alt">Seyir, Rust ile yazılmış <b>Warp tarzı</b> bir terminal. Komutunun başına <b>#</b> koy: yapay zekâ ajanının okuduğu her dosyayı,
+      çalıştırdığı her komutu, yaptığı her değişikliği <b>kutu kutu, anında</b> gör.</p>
+    <div class="eylem" id="indir-dugmeleri">
+      <a class="btn ana os-mac" href="https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir.dmg">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.97-3.46-1.07-1.57-2.74-1.78-3.33-1.8-1.42-.14-2.77.83-3.49.83-.72 0-1.83-.81-3-.79-1.55.02-2.97.9-3.77 2.28-1.6 2.78-.41 6.9 1.15 9.16.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.66zM14.1 5.86c.63-.77 1.06-1.83.94-2.89-.91.04-2.01.61-2.66 1.37-.58.67-1.1 1.76-.96 2.8 1.01.08 2.05-.52 2.68-1.28z"/></svg>
+        macOS için indir
+      </a>
+      <a class="btn ikinci os-win" href="https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir-Setup.exe">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.5v7H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg>
+        Windows için indir
+      </a>
+    </div>
+    <div class="kucuk">macOS (Apple Silicon) · Windows 10/11 · <code>v<span class="surum">0.10.2</span></code> · ücretsiz · <a href="#nasil" style="text-decoration:underline">nasıl çalışır?</a></div>
+
+    <div class="vitrin" id="vitrin">
+      <div class="pencere">
+        <div class="ust">
+          <span class="tl" style="background:#ff5f57"></span><span class="tl" style="background:#febc2e"></span><span class="tl" style="background:#28c840"></span>
+          <span class="ad"><img src="seyir.svg" alt="" />Seyir</span>
+          <span class="sek"><i></i>uygulama</span>
+        </div>
+        <div class="govde">
+          <div class="term">
+            <div class="blok"><span class="k">git</span> status <span class="sure">✓ 41 ms</span>
+              <div class="m">On branch main · nothing to commit</div></div>
+            <div class="blok"><span class="k">ls</span> <span class="d">-la</span> app/giris <span class="sure">✓ 12 ms</span>
+              <div class="m">GirisEkrani.kt&nbsp;&nbsp;GirisViewModel.kt&nbsp;&nbsp;GirisTest.kt</div></div>
+            <div class="bos"></div>
+            <div class="giris">
+              <div class="meta"><span>~/proje/uygulama</span><span class="g">⎇ main</span></div>
+              <div class="satir">❯ <span class="hash">#</span> <span id="yazi"></span><span class="imlec"></span></div>
+            </div>
+          </div>
+          <div class="defter">
+            <div class="dbas"><span class="yildiz">✳</span> Seyir defteri <span class="dur" id="dur">hazır</span></div>
+            <div class="akis" id="akis"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="ozellikler">
+  <div class="wrap">
+    <div class="baslik belir"><small>Özellikler</small><h2>Terminalin olması gerektiği gibi.</h2>
+      <p>Hızlı, sade, ve artık arkada ne olduğunu gösteriyor.</p></div>
+    <div class="ozellik">
+      <div class="kart genis belir"><div class="sim">✳</div><h3>Seyir defteri</h3>
+        <p>Giriş kutusuna <kbd>#</kbd> ile yaz, yapay zekâ kod ajanı çalışsın. Okunan dosyalar, aramalar, komutlar, diff'ler ve alt ajanlar sağ panelde canlı kutular olarak akar. Çalışan adım turuncu yanar; nerede kaldığını her an bilirsin. Sonunda süre, token ve maliyet.</p></div>
+      <div class="kart belir"><div class="sim">⚡</div><h3>Aynı anda olan, yan yana</h3>
+        <p>Ajan üç dosyayı birden okursa üç kutu yan yana açılır. Alt ajanlar kendi sütunlarında çalışır.</p></div>
+      <div class="kart belir"><div class="sim">❯</div><h3>Warp tarzı giriş kutusu</h3>
+        <p>Renkli sözdizimi, geçmişten gri öneri (<kbd>→</kbd>), <kbd>Tab</kbd> ile dosya ve komut tamamlama, çok satırlı komutlar.</p></div>
+      <div class="kart belir"><div class="sim">▤</div><h3>Komut blokları</h3>
+        <p>Her komut çıktısıyla ayrı bir blok. Hatalı olan kırmızı. Tek tıkla çıktıyı kopyala, tekrar çalıştır, <kbd>⌘↑</kbd> ile gez.</p></div>
+      <div class="kart belir"><div class="sim">⌘</div><h3>Komut paleti</h3>
+        <p><kbd>⌘P</kbd> ile her şey: temalar, saydamlık, bölmeler, geçmiş komutlar. Türkçe Q klavyeye uyumlu.</p></div>
+      <div class="kart genis tam belir"><div class="sim">🦀</div><h3>Rust hızında, 4 MB</h3>
+        <p>Kabuk bağlantısı Rust'ta, çizim GPU'da (WebGL). Electron yok; uygulama 4 MB, açılışı anında. Sekmeler, bölmeler, arama, beş tema ve kendi zsh ayarların olduğu gibi.</p></div>
+    </div>
+    <div class="sayilar">
+      <div class="sayi belir"><b>4 MB</b><span>uygulama boyutu</span></div>
+      <div class="sayi belir"><b>0</b><span>ekstra token: panel sadece izler</span></div>
+      <div class="sayi belir"><b>GPU</b><span>WebGL ile çizim</span></div>
+      <div class="sayi belir"><b>%100</b><span>yerel: veriniz makinenizde</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="nasil">
+  <div class="wrap">
+    <div class="baslik belir"><small>Nasıl çalışır</small><h2>Üç adımda başla.</h2>
+      <p>Bilgisayarındaki yapay zekâ kod ajanını kullanır; API anahtarı istemez, ek ayar gerekmez.</p></div>
+    <div class="nasil">
+      <div class="adim belir"><h3>İndir ve aç</h3><p><b>macOS:</b> DMG'yi aç, Seyir'i Uygulamalar'a sürükle. Apple imzalı ve onaylı, çift tıklayınca açılır. <b>Windows:</b> Seyir-Setup.exe'yi çalıştır; SmartScreen'de "Ek bilgi" › "Yine de çalıştır".</p>
+        <pre>Seyir.dmg  →  Uygulamalar
+  ✓ Apple onaylı</pre></div>
+      <div class="adim belir"><h3>Komutunu yaz</h3><p>Alttaki kutuya her zamanki gibi yaz. Her komut ayrı bir blok olur.</p>
+        <pre>❯ npm run build
+  ✓ 1.4 sn</pre></div>
+      <div class="adim belir"><h3># ile yapay zekâya sor</h3><p>Başına # koy, Seyir defteri açılsın. Önce denemek için: <b># demo</b></p>
+        <pre>❯ # giriş ekranı neden yavaş?
+  ✳ 📄 📄 📄 🔍 🤖 🤖 ▶ ✓</pre></div>
+    </div>
+
+    <div class="indir belir" id="indir">
+      <img src="seyir.svg" alt="Seyir" />
+      <h2>Seyir'i bugün dene.</h2>
+      <p>Sürüm <b class="surum">0.10.2</b> · macOS 12+ (Apple Silicon) · Windows 10/11</p>
+      <div class="eylem">
+        <a class="btn ana os-mac" href="https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir.dmg">⬇ macOS · Seyir.dmg</a>
+        <a class="btn ikinci os-win" href="https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir-Setup.exe">⬇ Windows · Seyir-Setup.exe</a>
+        <a class="btn ikinci" href="https://github.com/Clay-Tech/seyir/releases">Tüm sürümler</a>
+      </div>
+      <div class="cl-kutu" id="degisiklikler"><div class="cl"><h4>v0.10.2 · 20 Kasım 2026</h4><ul><li>Pencerenin kapat düğmesi yeniden çalışıyor (v0.10.0'da bozulmuştu)</li><li>Kapanırken indirilmiş güncelleme kurulacaksa pencere hemen gizlenir</li></ul></div><div class="cl"><h4>v0.10.1 · 20 Kasım 2026</h4><ul><li>Yeni sürüm üst çubuktaki düğmede durur, kaçırılmaz; arka planda iner, pencereyi kapatınca kurulur</li><li>Güncelleme açılışta ve 6 saatte bir denetlenir</li><li>Güncellemeden sonraki ilk açılışta Neler yeni penceresi; komut paletinden de açılır</li><li>Ayarlar › Terminal: otomatik güncelle anahtarı, sürüm, son denetim ve Şimdi denetle</li><li>Hatalar veri klasöründeki seyir.log dosyasına yazılır</li></ul></div><div class="cl"><h4>v0.10.0 · 19 Kasım 2026</h4><ul><li>Seyir defteri: izin kartı (izin ver, reddet, bu sohbette hep izin ver), onaylanan düzenlemeyi geri al, çalışırken araya girme, model seçimi</li><li>Bağlam doluluğu, sohbet maliyeti ve kota canlı sayaçta; Yapay zekâ kullanımı penceresi (günlük, modele göre, 5 saatlik ve haftalık kota)</li><li>Ayarlar penceresi (⌘,): yazı tipi, satır aralığı, dil; bütün kısayollar değiştirilebilir</li><li>Açılışta sekmeler, bölmeler ve sohbetler geri gelir; terminaldeki son komut soruya bağlam olarak eklenir</li><li>Komut blokları bash ve fish'te de; tmux içinde ve ssh ile bağlanılan sunucuda çalışır</li><li>Sistem bildirimleri, her yerden açan hızlı terminal kısayolu, terminalde görseller</li><li>Uygulama içi güncelleme; macOS sürümü Intel Mac'lerde de çalışır; Linux sürümü (AppImage, deb)</li><li>Arayüz İngilizce de kullanılabilir, ekran okuyucu etiketleri eklendi</li></ul></div><div class="cl"><h4>v0.9.4 · 19 Kasım 2026</h4><ul><li>macOS sürümü artık Apple Developer ID ile imzalı ve Apple onaylı: çift tıklayınca uyarısız açılır</li><li>Dikey sekmeler: arama, durum, klasör ve dal bilgisiyle; Seyir defterinde sohbet geçmişi ve kaldığın yerden sürdürme</li><li>Sürükle-bırak, sağ tık menüsü, yapay zekâyla düzelt/açıkla, Warp tarzı kutucuklar (klasör, dal, değişiklik), / ve ? kısayolları</li><li>Hız: hazır bekleyen kabuk, ilk karede pencere, ağır komutlar arka planda, kabuk açılırken yazılabilen giriş kutusu</li><li>Yayıncı K-Syntax; paket kimliği com.ksyntax.seyir</li></ul></div><div class="cl"><h4>v0.9.3 · 17 Kasım 2026</h4><ul><li>Yayın: sürüm etiketi vitrin deposunun gh-pages dalına kurulur</li><li>Yayın: token ön denetimi gerçek yazma denemesiyle (push --dry-run)</li></ul></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="marka" style="font-size:15px"><img src="seyir.svg" alt="" style="width:20px;height:20px" />Seyir</span>
+    <span>· Clay-Tech</span>
+    <div class="sag"><a href="https://github.com/Clay-Tech/seyir">GitHub</a><a href="https://github.com/Clay-Tech/seyir/releases">Sürümler</a><a href="https://github.com/Clay-Tech/seyir/issues">Öneri / hata bildir</a></div>
+  </div>
+</footer>
+
+<script>
+  // Ziyaretçi Windows'taysa Windows düğmesini öne çıkar
+  if (/Windows/.test(navigator.userAgent)) {
+    document.querySelectorAll(".os-mac").forEach((a) => { a.classList.remove("ana"); a.classList.add("ikinci"); });
+    document.querySelectorAll(".os-win").forEach((a) => { a.classList.remove("ikinci"); a.classList.add("ana"); a.parentNode.prepend(a); });
+    document.getElementById("nav-indir").href = "https://github.com/Clay-Tech/seyir/releases/latest/download/Seyir-Setup.exe";
+  }
+  // Son sürümü GitHub'dan canlı oku (sayfa eski kalsa bile buton doğru sürümü gösterir)
+  fetch("https://api.github.com/repos/Clay-Tech/seyir/releases/latest").then((r) => r.ok ? r.json() : null).then((j) => {
+    if (!j?.tag_name) return;
+    document.querySelectorAll(".surum").forEach((e) => (e.textContent = j.tag_name.replace(/^v/, ""))); const a = (j.assets || []).find((x) => x.name === "Seyir.dmg"); if (a) document.getElementById("boyut").textContent = (a.size / 1048576).toFixed(1) + " MB";
+  }).catch(() => {});
+
+  // Kaydırınca beliren öğeler
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("gor"); io.unobserve(e.target); } }), { threshold: 0.15 });
+  document.querySelectorAll(".belir, .vitrin").forEach((e) => io.observe(e));
+  document.querySelectorAll(".kart").forEach((k) => k.addEventListener("mousemove", (e) => {
+    const r = k.getBoundingClientRect();
+    k.style.setProperty("--x", `${e.clientX - r.left}px`); k.style.setProperty("--y", `${e.clientY - r.top}px`);
+  }));
+
+  // Vitrin: Seyir defteri canlı akış canlandırması (döngü)
+  const akis = document.getElementById("akis"), dur = document.getElementById("dur"), yazi = document.getElementById("yazi");
+  const soru = "giriş ekranı neden yavaş? bul ve düzelt";
+  const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
+  const kutu = (ic, ad, ar, cls = "") => {
+    const k = document.createElement("div");
+    k.className = `kutu ${cls}`;
+    k.innerHTML = `<span class="ic">${ic}</span><span class="ad">${ad}</span><span class="ar">${ar}</span><span class="sn">…</span>`;
+    return k;
+  };
+  const goster = (el, kap = akis) => { kap.appendChild(el); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("var"))); akis.scrollTop = akis.scrollHeight; };
+  const bitir = (k, sn) => { k.classList.remove("calis"); k.classList.add("tamam"); k.querySelector(".sn").textContent = sn; };
+  async function oynat() {
+    for (;;) {
+      akis.innerHTML = ""; yazi.textContent = ""; dur.textContent = "hazır"; dur.className = "dur";
+      for (const h of soru) { yazi.textContent += h; await bekle(45); }
+      await bekle(500);
+      yazi.textContent = ""; dur.textContent = "çalışıyor";
+      const g = kutu("❯", "Görev", soru, "gorev"); g.querySelector(".sn").remove(); goster(g);
+      const d = document.createElement("div"); d.className = "dusun"; d.innerHTML = `<span class="don">✳</span> düşünüyor…`; akis.appendChild(d);
+      await bekle(1100); d.remove();
+      const p = document.createElement("div"); p.className = "par";
+      p.innerHTML = `<div class="et">aynı anda 3 iş</div><div class="izgara"></div>`;
+      const iz = p.querySelector(".izgara");
+      const r = [["GirisEkrani.kt", "0.4 sn"], ["GirisViewModel.kt", "0.7 sn"], ["ApiIstemcisi.kt", "0.6 sn"]].map(([f]) => kutu("📄", "Okudu", f, "calis"));
+      r.forEach((k) => iz.appendChild(k)); goster(p); r.forEach((k) => k.classList.add("var"));
+      await bekle(450); bitir(r[0], "0.4 sn"); await bekle(250); bitir(r[2], "0.6 sn"); await bekle(200); bitir(r[1], "0.7 sn");
+      await bekle(400);
+      const gr = kutu("🔍", "Aradı", `"runBlocking" · app/`, "calis"); goster(gr); await bekle(700); bitir(gr, "0.3 sn");
+      await bekle(400);
+      const a = document.createElement("div"); a.className = "par iki";
+      a.innerHTML = `<div class="et">2 alt ajan</div><div class="izgara"></div>`;
+      const iz2 = a.querySelector(".izgara");
+      const ajan = (ad, satirlar) => {
+        const k = document.createElement("div"); k.className = "kutu alt-ajan calis var";
+        k.innerHTML = `<div class="ust2"><span class="ic">🤖</span><span class="ad">${ad}</span><span class="sn" style="margin-left:auto">…</span></div><div class="ic2">${satirlar.map((s) => `<span>${s}</span>`).join("")}</div>`;
+        iz2.appendChild(k); return k;
+      };
+      const a1 = ajan("Düzeltmeyi yap", ["📄 GirisViewModel.kt", "✎ <span class='ek'>+ viewModelScope.launch</span>"]);
+      const a2 = ajan("Test yaz", ["✱ *ViewModelTest.kt", "✚ GirisViewModelTest.kt"]);
+      goster(a);
+      const sat1 = a1.querySelectorAll(".ic2 span"), sat2 = a2.querySelectorAll(".ic2 span");
+      await bekle(500); sat1[0].classList.add("var"); await bekle(300); sat2[0].classList.add("var");
+      await bekle(600); sat1[1].classList.add("var"); await bekle(400); sat2[1].classList.add("var");
+      await bekle(500); bitir(a1, "4.1 sn"); await bekle(350); bitir(a2, "5.0 sn");
+      await bekle(400);
+      const b = kutu("▶", "Çalıştırdı", "./gradlew test --tests '*Giris*'", "calis"); goster(b);
+      await bekle(1500); bitir(b, "14 sn");
+      await bekle(400);
+      const s = document.createElement("div"); s.className = "sonuc";
+      s.innerHTML = `<b>✓ Sonuç</b> · <code>runBlocking</code> ana iş parçacığını kilitliyordu; arka plana taşındı, test eklendi ve geçti.<div class="st"><span>⏱ 24.8 sn</span><span>↻ 9 tur</span><span>⇣ 23 bin · ⇡ 1.6 bin token</span></div>`;
+      goster(s); dur.textContent = "bitti · 24.8 sn"; dur.className = "dur bitti";
+      await bekle(5200);
+    }
+  }
+  oynat();
+</script>
+</body>
+</html>
