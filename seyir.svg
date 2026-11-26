@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#242321"/><stop offset=".55" stop-color="#090909"/><stop offset="1" stop-color="#30261d"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8c8174"/><stop offset=".55" stop-color="#fff0d9"/><stop offset="1" stop-color="#d9a96e"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="1200" rx="190" fill="#050505"/>
+  <rect x="150" y="135" width="900" height="930" rx="150" fill="url(#frame)" stroke="#48423b" stroke-width="3"/>
+  <rect x="255" y="245" width="690" height="600" rx="85" fill="#050505" stroke="#5b5147" stroke-width="4"/>
+  <path d="M255 330 Q255 245 340 245 H860 Q945 245 945 330" fill="none" stroke="#39332d" stroke-width="4"/>
+  <circle cx="330" cy="292" r="22" fill="#ff5149"/><circle cx="395" cy="292" r="22" fill="#ffc52e"/><circle cx="460" cy="292" r="22" fill="#55c978"/>
+  <path d="M365 410 L430 458 L365 506" fill="none" stroke="#fff0dc" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M470 507 H555" stroke="#fff0dc" stroke-width="26" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M280 795 C425 715 560 770 665 705 C745 655 700 610 820 575 C905 550 900 510 890 485" fill="none" stroke="#51483e" stroke-width="92" opacity=".28" stroke-linecap="round"/>
+  <path d="M280 795 C425 715 560 770 665 705 C745 655 700 610 820 575 C905 550 900 510 890 485" fill="none" stroke="url(#road)" stroke-width="48" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M632 745 C615 720 618 680 634 660 L647 628 L663 650 L683 650 L700 628 L710 665 C725 687 725 720 709 745 Z" fill="#050505" stroke="#d9c5a8" stroke-width="3"/>
+  <path d="M700 738 C738 754 755 728 744 704" fill="none" stroke="#050505" stroke-width="15" stroke-linecap="round"/>
+  <text x="600" y="950" fill="#fff0dc" font-family="Inter, Arial, sans-serif" font-size="112" font-weight="650" text-anchor="middle" letter-spacing="-5">Seyir</text>
+</svg>
